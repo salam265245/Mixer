@@ -2879,7 +2879,7 @@ function DailyRoutineManager({t, lang, setToast, dailyTasks: propDailyTasks, set
     setDateInput(t);
   }, []);
 
-  function toggleSubject(id){ setSelectedSubjects(prev=> prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]); }
+  function toggleSubject(id){ setSelectedSubjects(prev=> prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]); setShowSubject(false); setSubjectSearch(''); }
   function removeSubject(id){ setSelectedSubjects(prev=> prev.filter(x=>x!==id)); }
   const filteredSubjects = SUBJECT_OPTIONS.filter(o=>{
     if(!subjectSearch) return true;
@@ -3114,7 +3114,7 @@ function DailyRoutineManager({t, lang, setToast, dailyTasks: propDailyTasks, set
           h('p', {className:'text-[11px] text-[#8B7355] mt-2'}, 'ঘণ্টা ও মিনিট স্ক্রল করে সিলেক্ট করুন, AM/PM সেট করুন')
         ),
         h('div', null,
-          h('label', {className:labelClass}, '📄 বিষয় / Subject'),
+          h('div', {className:'flex items-center gap-2 mb-1.5'}, h('label', {className:labelClass + ' !mb-0'}, '📄 বিষয় / Subject'), selectedSubjects.length>0 ? h('span', {className:'px-2.5 py-0.5 rounded-full bg-[#1B4D3E] text-white text-[11px] font-bold'}, `${selectedSubjects.length} selected`) : null),
           h('div', {className:'relative mt-1.5'},
             h('input', {
               value:subjectSearch, 
@@ -3123,10 +3123,7 @@ function DailyRoutineManager({t, lang, setToast, dailyTasks: propDailyTasks, set
               placeholder:'🔍 Search subject... (Click to show/hide 27 items)', 
               className:'w-full bg-white border border-[#E8E6DC] rounded-[16px] px-4 py-3 text-[13px] focus:outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E]'
             }),
-            h('div', {className:'absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'},
-              selectedSubjects.length>0 ? h('span', {className:'px-2 py-0.5 rounded-full bg-[#1B4D3E] text-white text-[10px] font-bold'}, `${selectedSubjects.length} selected`) : null,
-              h('span', {className:'text-[12px] text-[#8B7355]'}, showSubject ? '▲' : '▼')
-            )
+            h('div', {className:'absolute right-3 top-1/2 -translate-y-1/2'}, h('span', {className:'text-[12px] text-[#8B7355]'}, showSubject ? '▲' : '▼'))
           ),
           showSubject ? h('div', {className:'mt-2 bg-white border border-[#E8E6DC] rounded-[16px] p-2 max-h-[260px] overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.08)]'},
             filteredSubjects.length>0 ? filteredSubjects.map(o=> h('button', {key:o.id, onClick:()=>toggleSubject(o.id), className:'w-full text-left px-3 py-2.5 rounded-[10px] flex items-center gap-2 text-[12px] border ' + (selectedSubjects.includes(o.id) ? 'bg-[#E8F5E9] border-[#A5D6A7] text-[#1B4D3E] font-bold' : 'bg-white border-transparent hover:bg-[#F9F6F0]')}, h('span', {className:'text-[14px]'}, o.icon), h('span', null, lang==='en'?o.en:o.bn), selectedSubjects.includes(o.id) ? h('span', {className:'ml-auto text-[#1B4D3E] text-[14px]'}, '✓') : null)) : h('p', {className:'text-center py-4 text-[12px] text-[#8B7355]'}, 'No results found')
@@ -3446,11 +3443,19 @@ function TravelManager({t, lang, setToast}){
   function toggleGroup(gid){ setOpenGroups(prev=> ({...prev, [gid]: !prev[gid]})); }
 
   const filteredGroups = TRAVEL_GROUPS.map(g=>{
-    if(!search) return g;
-    const s = search.toLowerCase();
-    const filteredItems = g.items.filter(it=> it.label.toLowerCase().includes(s));
-    if(filteredItems.length===0 && !g.name.toLowerCase().includes(s) && !g.nameEn.toLowerCase().includes(s)) return null;
-    return {...g, items: filteredItems.length>0 ? filteredItems : g.items};
+    let items = g.items;
+    // NEW: When any item is selected, hide unselected (only show selected)
+    if(selected && selected.length>0){
+      items = items.filter(it=> selected.includes(it.id));
+    }
+    if(search){
+      const s = search.toLowerCase();
+      const filteredItems = items.filter(it=> it.label.toLowerCase().includes(s));
+      if(filteredItems.length===0 && !g.name.toLowerCase().includes(s) && !g.nameEn.toLowerCase().includes(s)) return null;
+      return {...g, items: filteredItems.length>0 ? filteredItems : items};
+    }
+    if(items.length===0) return null;
+    return {...g, items};
   }).filter(Boolean);
 
   function handleSave(){
@@ -3622,6 +3627,7 @@ function TravelManager({t, lang, setToast}){
                 h('div', {className:'flex-1'},
                   h('p', {className:'text-[12px] font-bold text-[#1A1A1A]'}, (tr.fromLocation||'?')+' → '+(tr.destination||'?')),
                   h('p', {className:'text-[10px] text-gray-600'}, (tr.fromDate||'')+' → '+(tr.toDate||'')+' | '+(tr.selected?.length||0)+' items'),
+                  tr.selected && tr.selected.length>0 ? h('p', {className:'text-[12px] font-bold text-[#1A1A1A] mt-2'}, tr.selected.map(sid=>{ try{ let lbl=sid; TRAVEL_GROUPS.forEach(g=>{ g.items.forEach(it=>{ if(it.id===sid) lbl=it.label; }); }); return lbl; }catch(e){ return sid; } }).join(', ')) : null,
                   h('p', {className:'text-[10px] font-bold '+(tr.travelStatus==='Travel Done' ? 'text-[#2E7D32]' : 'text-[#B71C1C]')}, tr.travelStatus)
                 ),
                 h('div', {className:'flex gap-1'},
@@ -3920,7 +3926,7 @@ function MarketSurveyManager({t, lang, setToast}){
       supplier1Business:'', supplier1Owner:'', supplier1Mobile:'', supplier1Payable:'', supplier2Business:'', supplier2Owner:'', supplier2Mobile:'', supplier2Payable:'',
       buyer1Business:'', buyer1Owner:'', buyer1Mobile:'', buyer1Receivable:'', buyer2Business:'', buyer2Owner:'', buyer2Mobile:'', buyer2Receivable:'',
       noOfShop:'', shopRentYearly:'', noOfGodown:'', godownAdvance:'', godownRentYearly:'',
-      existingLoanType:'NGO', existingLoanSearch:'', existingLoanOrg:'', loanType:'', disbursementDate:'', disbursementAmount:'', totalEMI:'', currentOutstanding:'',
+      existingLoanType:'', existingLoanSearch:'', existingLoanOrg:'', loanType:'', disbursementDate:'', disbursementAmount:'', totalEMI:'', currentOutstanding:'',
       familyExpensePerson1:'', houseRent:'', houseElectricity:'', foodCloth:'', education:'', telephoneBill:'', medical:'', entertainment:'', conveyance:'', othersExpense:'', familyExpenseTotal:'0',
       rentalIncome:'', otherBusinessIncome:'', transportBusiness:'', remittance:'', otherBusinessIncome2:'', totalBusinessIncome:'', salaryOtherIncome:'', totalIncome:'0',
       totalFamilyAsset:'', totalLiabilities:'', netWorth:'0', totalValue:'',
@@ -4120,7 +4126,7 @@ function MarketSurveyManager({t, lang, setToast}){
       supplier1Business:'', supplier1Owner:'', supplier1Mobile:'', supplier1Payable:'', supplier2Business:'', supplier2Owner:'', supplier2Mobile:'', supplier2Payable:'',
       buyer1Business:'', buyer1Owner:'', buyer1Mobile:'', buyer1Receivable:'', buyer2Business:'', buyer2Owner:'', buyer2Mobile:'', buyer2Receivable:'',
       noOfShop:'', shopRentYearly:'', noOfGodown:'', godownAdvance:'', godownRentYearly:'',
-      existingLoanType:'NGO', existingLoanSearch:'', existingLoanOrg:'', loanType:'', disbursementDate:'', disbursementAmount:'', totalEMI:'', currentOutstanding:'',
+      existingLoanType:'', existingLoanSearch:'', existingLoanOrg:'', loanType:'', disbursementDate:'', disbursementAmount:'', totalEMI:'', currentOutstanding:'',
       familyExpensePerson1:'', houseRent:'', houseElectricity:'', foodCloth:'', education:'', telephoneBill:'', medical:'', entertainment:'', conveyance:'', othersExpense:'', familyExpenseTotal:'0',
       rentalIncome:'', otherBusinessIncome:'', transportBusiness:'', remittance:'', otherBusinessIncome2:'', totalBusinessIncome:'', salaryOtherIncome:'', totalIncome:'0',
       totalFamilyAsset:'', totalLiabilities:'', netWorth:'0', totalValue:'',
@@ -4217,7 +4223,7 @@ function MarketSurveyManager({t, lang, setToast}){
       h('div', {className:sectionClass}, h('span', null, '3. Existing Loan'), h('button', {onClick:()=>handleSaveSection('Existing Loan'), style:{color:'#2D2A26', backgroundColor:'#C9A86A'}, className:'px-4 py-1 rounded-full text-[11px] font-bold'}, 'Save')),
       h('div', {className:'bg-white border rounded-[12px] p-3 space-y-3'},
         h('div', {className:'flex gap-2 flex-wrap'}, 
-          [['NGO','NGO'],['Bank','Bank'],['NBFI','NBFI'],['Others NGO','Others NGO']].map(t=> h('button', {key:t[0], onClick:()=>{ update('existingLoanType', t[0]); if(t[0]==='Others NGO'){ setShowOthersNGO(v=>!v); } setShowLoanList(true); setShowBusinessList(true); }, style: form.existingLoanType===t[0] ? {backgroundColor:'#1A1A1A', color:'white'} : (t[0]==='Others NGO' ? {backgroundColor:'#2b2b2b', color:'white'} : {backgroundColor:'#F5F1E8', color:'#1A1A1A'}), className:'px-4 py-2 rounded-full text-[11px] font-bold border'}, t[1]))
+          [['NGO','NGO'],['Bank','Bank'],['NBFI','NBFI'],['Others NGO','Others NGO']].map(t=> h('button', {key:t[0], onClick:()=>{ update('existingLoanType', t[0]); if(t[0]==='Others NGO'){ setShowOthersNGO(v=>!v); } setShowLoanList(true); setShowBusinessList(true); }, style: form.existingLoanType===t[0] ? {backgroundColor:'#1A1A1A', color:'white'} : {backgroundColor:'#F5F1E8', color:'#1A1A1A'}, className:'px-4 py-2 rounded-full text-[11px] font-bold border'}, t[1]))
         ),
         showOthersNGO ? h('div', {id:'othersNGOBox', className:'mb-3 p-3 bg-amber-50 border-2 border-amber-200 rounded-xl'},
           h('label', {className:'font-semibold text-sm text-amber-800'}, 'Others NGO Name / অন্যান্য NGO নাম'),
@@ -6924,25 +6930,52 @@ async function handleReportPdf(mode){
 
 
 
+
+
 function renderMarketSurveyPages(o){
   const W=2480, H=3508, M=120;
   const pages=[]; let cv, ctx, y=0;
+  const PDF_FONT='sans-serif';
+  const isEn = (o.lang||'en')==='en';
+  let profileLinesCache=[]; 
+  try{ 
+    const lsN=(typeof localStorage!=='undefined' && localStorage.getItem('lifestyle_user_name'))||''; 
+    const lsD=(typeof localStorage!=='undefined' && localStorage.getItem('lifestyle_user_designation'))||''; 
+    const lsA=(typeof localStorage!=='undefined' && localStorage.getItem('lifestyle_user_address'))||''; 
+    const lsM=(typeof localStorage!=='undefined' && localStorage.getItem('lifestyle_user_mobile'))||''; 
+    if(o.userName||lsN) profileLinesCache.push((isEn?'User: ':'ব্যবহারকারী: ')+(o.userName||lsN)); 
+    if(o.userDesignation||lsD) profileLinesCache.push((isEn?'Designation: ':'পদবী: ')+(o.userDesignation||lsD)); 
+    if(o.userAddress||lsA) profileLinesCache.push((isEn?'Address: ':'ঠিকানা: ')+(o.userAddress||lsA)); 
+    if(o.userMobile||lsM) profileLinesCache.push((isEn?'Mobile: ':'মোবাইল: ')+(o.userMobile||lsM)); 
+  }catch(e){}
+  const devLines = ['💻 Developer','👤 Md. Abdus Salam','📍 Bantra, Kalaroa, Satkhira','📞 Mobile: +8801737265245','✉️ Email: salamwgp@gmail.com'];
+  function font(sz,bold){ ctx.font=(bold?'700 ':'400 ')+sz+'px '+PDF_FONT; }
+  function fit(str,maxW){ str=String(str==null?'':str); if(!maxW||ctx.measureText(str).width<=maxW) return str; while(str.length>1&&ctx.measureText(str+'…').width>maxW) str=str.slice(0,-1); return str+'…'; }
   function newPage(){
     cv=document.createElement('canvas'); cv.width=W; cv.height=H; ctx=cv.getContext('2d');
     ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
     y=M;
-    // Header
-    ctx.fillStyle='#1E4538'; ctx.fillRect(0,0,W,180);
-    ctx.fillStyle='#C9A86A'; ctx.font='bold 54px sans-serif'; ctx.fillText(o.appName||'Lifestyle', M, 110);
-    ctx.fillStyle='#fff'; ctx.font='28px sans-serif'; ctx.fillText('Market Survey Report', M, 150);
-    ctx.font='20px sans-serif'; ctx.fillText('Generated: '+ (o.generatedAt?o.generatedAt.toLocaleString():'') + ' | User: '+(o.userName||''), M, 175);
-    y=220;
+    const genDateObj = (o.generatedAt instanceof Date) ? o.generatedAt : new Date();
+    const dd = String(genDateObj.getDate()).padStart(2,'0'); const mm = String(genDateObj.getMonth()+1).padStart(2,'0'); const yyyy = genDateObj.getFullYear();
+    const dateStr = dd+'/'+mm+'/'+yyyy; const timeStr = genDateObj.toLocaleTimeString((o.lang||'en')==='en'?'en-US':'bn-BD', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true});
+    const leftX = M; let ly = y;
+    font(52,true); ctx.fillStyle='#000000'; ctx.fillText(fit(o.appName || 'Lifestyle',800),leftX,ly); ly+=60; font(28,true); ctx.fillStyle='#2D2A26'; ctx.fillText(fit((isEn?'Download: ':'ডাউনলোড: ')+dateStr+' '+timeStr,1000),leftX,ly); ly+=44; font(26,false); profileLinesCache.forEach(pl=>{ ctx.fillText(fit(pl,1000),leftX,ly); ly+=36; });
+    let _maxDevW=0; const devBlockW=900;
+    devLines.forEach(dl=>{ const _w=ctx.measureText(fit(dl,devBlockW)).width; if(_w>_maxDevW) _maxDevW=_w; });
+    const devBlockX=W-M-_maxDevW; let ry=y;
+    devLines.forEach((dl,i)=>{
+       font(i===0?30:24, i===0);
+       ctx.fillStyle = '#2D2A26';
+       ctx.textAlign='left';
+       ctx.fillText(fit(dl, devBlockW), devBlockX, ry);
+       ry+=38;
+     });
+    ctx.textAlign='left'; y=Math.max(ly,ry)+30; ctx.strokeStyle='#000000'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(M,y); ctx.lineTo(W-M,y); ctx.stroke(); y+=50;
+    ctx.fillStyle='#E65100'; ctx.fillRect(M,y,W-2*M,8); y+=20;
+    ctx.fillStyle='#E65100'; ctx.font='bold 32px sans-serif'; ctx.fillText('Market Survey Report', M, y+30); y+=70;
     pages.push(cv);
-    return;
   }
-  function ensureSpace(need){
-    if(y+need > H-100){ newPage(); }
-  }
+  function ensureSpace(need){ if(y+need > H-100){ newPage(); } }
   function drawSection(title){
     ensureSpace(90);
     ctx.fillStyle='#2D2A26'; ctx.fillRect(M, y, W-2*M, 70);
@@ -6950,30 +6983,36 @@ function renderMarketSurveyPages(o){
     y+=90;
   }
   function drawField(label, value){
-    if(!value && value!==0) return;
+    if(value===undefined || value===null || value==='') return;
+    if(Array.isArray(value) && value.length===0) return;
+    const vStr = Array.isArray(value) ? value.join(', ') : String(value);
+    if(!vStr) return;
     ensureSpace(60);
     ctx.fillStyle='#5C4A32'; ctx.font='bold 24px sans-serif';
     const lab = label+': ';
+    const labW = ctx.measureText(lab).width;
     ctx.fillText(lab, M, y);
     ctx.fillStyle='#1A1A1A'; ctx.font='24px sans-serif';
-    const v = String(value);
-    // wrap
-    let maxW = W-2*M - ctx.measureText(lab).width - 20;
+    const maxW = W - 2*M - labW - 20;
+    let words = vStr.split(' ');
     let lines=[];
     let cur='';
-    for(let ch of v){ cur+=ch; if(ctx.measureText(cur).width>maxW){ lines.push(cur.slice(0,-1)); cur=ch; } }
+    for(let w of words){
+      const test = cur ? cur+' '+w : w;
+      if(ctx.measureText(test).width <= maxW){ cur=test; } else { if(cur) lines.push(cur); cur=w; }
+    }
     if(cur) lines.push(cur);
-    ctx.fillText(lines[0]||'', M+ctx.measureText(lab).width, y);
-    y+=40;
+    if(lines.length===0) lines=[vStr];
+    ctx.fillText(lines[0], M+labW, y);
+    y+=45;
     for(let i=1;i<lines.length;i++){
       ensureSpace(50);
-      ctx.fillText(lines[i], M, y);
-      y+=40;
+      ctx.fillText(lines[i], M+20, y);
+      y+=45;
     }
     y+=10;
   }
   newPage();
-  // Sections
   const f=o.form||{};
   drawSection('1. Ownership');
   drawField('Ownership Type', f.ownershipType);
@@ -6984,29 +7023,37 @@ function renderMarketSurveyPages(o){
   drawField('Owner Name', f.ownerName);
   drawField('Mobile', f.mobileNo);
   drawField('Address', f.address);
-  drawField('Business Types', (f.selectedBizItems||[]).map(x=>x.bn+' ('+x.en+')').join(', ') || f.businessType);
-  const simpleFields = ['cashInHand','goodsInTransit','stock','receivables','payables','monthlySales','yearlySales','advanceToSuppliers','possessionValue','shopAdvance','buildingCost','furniture','machineries','vehicleNo','vehiclePrice','totalEmployee','totalSalary','wholesalePct','wholesaleMargin','retailPct','retailMargin','avgMargin','electricity','transportCost','adminCost','ownerDrawing','rentBusiness','monthlyTotalExpense','tax','noOfShop','shopRentYearly','noOfGodown','godownAdvance','godownRentYearly'];
-  simpleFields.forEach(k=> drawField(k, f[k]));
+  drawField('Business Type Search', f.businessTypeSearch);
+  drawField('Business Types', (f.selectedBizItems||[]).map(x=> (x.bn||x.en||'')+' ('+(x.en||x.bn||'')+')').join(', ') || f.businessType);
+  const simpleFields = [
+    ['cashInHand','Cash In Hand'],['goodsInTransit','Goods In Transit'],['stock','Stock'],['receivables','Receivables'],['payables','Payables'],['monthlySales','Monthly Sales'],['yearlySales','Yearly Sales'],['advanceToSuppliers','Advance To Suppliers'],['possessionValue','Possession Value'],['shopAdvance','Shop Advance'],['buildingCost','Building Cost'],['furniture','Furniture'],['machineries','Machineries'],['vehicleNo','Vehicle No'],['vehiclePrice','Vehicle Price'],['totalEmployee','Total Employee'],['totalSalary','Total Salary'],['wholesalePct','Wholesale %'],['wholesaleMargin','Wholesale Margin'],['retailPct','Retail %'],['retailMargin','Retail Margin'],['avgMargin','Avg Margin'],['electricity','Electricity'],['transportCost','Transport Cost'],['adminCost','Admin Cost'],['ownerDrawing','Owner Drawing'],['rentBusiness','Rent Business'],['monthlyTotalExpense','Monthly Total Expense'],['tax','Tax'],['noOfShop','No Of Shop'],['shopRentYearly','Shop Rent Yearly'],['noOfGodown','No Of Godown'],['godownAdvance','Godown Advance'],['godownRentYearly','Godown Rent Yearly'],['buyer1Business','Buyer 1 Business'],['buyer1Owner','Buyer 1 Owner'],['buyer1Mobile','Buyer 1 Mobile'],['buyer1Receivable','Buyer 1 Receivable'],['buyer2Business','Buyer 2 Business'],['buyer2Owner','Buyer 2 Owner'],['buyer2Mobile','Buyer 2 Mobile'],['buyer2Receivable','Buyer 2 Receivable']
+  ];
+  simpleFields.forEach(([k,lbl])=> drawField(lbl, f[k]));
   drawSection('3. Existing Loan');
   drawField('Existing Loan Type', f.existingLoanType);
-  drawField('NGO Selected', (f.selectedLoans&&f.selectedLoans.ngo||[]).map(x=>x.bn+' ('+x.en+')').join(', '));
-  drawField('Bank Selected', (f.selectedLoans&&f.selectedLoans.bank||[]).map(x=>x.bn+' ('+x.en+')').join(', '));
-  drawField('NBFI Selected', (f.selectedLoans&&f.selectedLoans.nbfi||[]).map(x=>x.bn+' ('+x.en+')').join(', '));
+  drawField('Existing Loan Search', f.existingLoanSearch);
+  drawField('Existing Loan Org', f.existingLoanOrg);
+  drawField('NGO Selected', (f.selectedLoans&&f.selectedLoans.ngo||[]).map(x=> (x.bn||x.en||'') ).join(', '));
+  drawField('Bank Selected', (f.selectedLoans&&f.selectedLoans.bank||[]).map(x=> (x.bn||x.en||'') ).join(', '));
+  drawField('NBFI Selected', (f.selectedLoans&&f.selectedLoans.nbfi||[]).map(x=> (x.bn||x.en||'') ).join(', '));
   drawField('Others NGO', f.othersNGO);
   drawField('Loan Type', f.loanType);
   drawField('Disbursement Date', f.disbursementDate);
-  drawField('Disbursement Amount', f.disbursementAmount);
+  drawField('Disbursement Amount (Lac)', f.disbursementAmount);
   drawField('Total EMI', f.totalEMI);
   drawField('Current Outstanding', f.currentOutstanding);
   drawSection('4. Family Expenditure & Income');
-  ['familyExpensePerson1','houseRent','houseElectricity','foodCloth','education','telephoneBill','medical','entertainment','conveyance','othersExpense','familyExpenseTotal','rentalIncome','otherBusinessIncome','transportBusiness','remittance','otherBusinessIncome2','totalBusinessIncome','salaryOtherIncome','totalIncome'].forEach(k=> drawField(k, f[k]));
-  drawSection('6. Family Asset & Liability');
-  ['totalFamilyAsset','totalLiabilities','netWorth','totalValue','personalAssetDetails','desiredLoan','whichMonth','emiComfort'].forEach(k=> drawField(k, f[k]));
-  drawSection('9. Guarantors');
-  ['noOfGuarantor','guarantor1Type','guarantor1Name','guarantor1Spouse','guarantor1Mobile','guarantor1Occupation','guarantor1PersonalAsset','guarantor1CCLoan','guarantor2Type','guarantor2Name','guarantor2Spouse','guarantor2Mobile','guarantor2Occupation','guarantor2PersonalAsset','guarantor2CCLoan'].forEach(k=> drawField(k, f[k]));
-
+  const expFields = [['familyExpensePerson1','Family Expense Person1'],['houseRent','House Rent'],['houseElectricity','House Electricity'],['foodCloth','Food Cloth'],['education','Education'],['telephoneBill','Telephone Bill'],['medical','Medical'],['entertainment','Entertainment'],['conveyance','Conveyance'],['othersExpense','Others Expense'],['familyExpenseTotal','Family Expense Total'],['rentalIncome','Rental Income'],['otherBusinessIncome','Other Business Income'],['transportBusiness','Transport Business'],['remittance','Remittance'],['otherBusinessIncome2','Other Business Income2'],['totalBusinessIncome','Total Business Income'],['salaryOtherIncome','Salary Other Income'],['totalIncome','Total Income']];
+  expFields.forEach(([k,lbl])=> drawField(lbl, f[k]));
+  drawSection('5. Family Asset & Liability');
+  const assetFields = [['totalFamilyAsset','Total Family Asset'],['totalLiabilities','Total Liabilities'],['netWorth','Net Worth'],['totalValue','Total Value'],['personalAssetDetails','Personal Asset Details'],['desiredLoan','Desired Loan'],['whichMonth','Which Month'],['emiComfort','EMI Comfort']];
+  assetFields.forEach(([k,lbl])=> drawField(lbl, f[k]));
+  drawSection('6. Guarantors');
+  const guarFields = [['noOfGuarantor','No Of Guarantor'],['guarantor1Type','Guarantor1 Type'],['guarantor1Name','Guarantor1 Name'],['guarantor1Spouse','Guarantor1 Spouse'],['guarantor1Mobile','Guarantor1 Mobile'],['guarantor1Occupation','Guarantor1 Occupation'],['guarantor1PersonalAsset','Guarantor1 Personal Asset'],['guarantor1CCLoan','Guarantor1 CC Loan'],['guarantor2Type','Guarantor2 Type'],['guarantor2Name','Guarantor2 Name'],['guarantor2Spouse','Guarantor2 Spouse'],['guarantor2Mobile','Guarantor2 Mobile'],['guarantor2Occupation','Guarantor2 Occupation'],['guarantor2PersonalAsset','Guarantor2 Personal Asset'],['guarantor2CCLoan','Guarantor2 CC Loan']];
+  guarFields.forEach(([k,lbl])=> drawField(lbl, f[k]));
   return pages;
 }
+
 
 function renderTravelPartnerPages(o){
   const W=2480, H=3508, M=120;
